@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace MonkeUpdater
@@ -9,21 +10,35 @@ namespace MonkeUpdater
     static class Program
     {
         private static readonly string _path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MonkeUpdater");
-        public static void Main()
+
+        public static async Task Main()
         {
-            string e = File.ReadAllText(Path.Combine(_path, "exepath.txt"));
-            byte[] ee = DownloadFile("https://github.com/ngbatzyt/monkemodmanager/releases/latest/download/monkemodmanager.exe");
-            File.WriteAllBytes(e, ee);
-            MessageBox.Show("MonkeModManager updated successfully!", "MonkeUpdater", MessageBoxButtons.OK);
-            Process.Start(e);
+            string exePath = File.ReadAllText(Path.Combine(_path, "exepath.txt"));
+
+            string downloadUrl = "https://github.com/ngbatzyt/monkemodmanager/releases/latest/download/monkemodmanager.exe";
+            await DownloadFile(downloadUrl, exePath);
+
+            await Task.Delay(3000);
+
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = exePath,
+                UseShellExecute = true, 
+            };
+
+            Process.Start(psi);
             Environment.Exit(0);
         }
-        
-        private static byte[] DownloadFile(string url)
+
+        private static async Task DownloadFile(string url, string savePath)
         {
-            WebClient client = new WebClient();
-            client.Proxy = null;
-            return client.DownloadData(url);
+            using (HttpClient client = new HttpClient())
+            {
+                HttpResponseMessage response = await client.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+                using FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                await response.Content.CopyToAsync(fs);
+            }
         }
     }
 }
